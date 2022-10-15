@@ -1,0 +1,47 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/BasicLicense.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17; \n\ncontract BasicLicense{\n\n\n    address private immutable i_owner;\n    uint256 private immutable i_licenseId;\n\n    constructor(address owner,uint256 licenseId) {\n        i_owner = owner;\n        i_licenseId = licenseId;\n    }\n    function getOwner() public view returns (address) {\n        return i_owner;\n    }\n\n}\n"
+    },
+    "contracts/LicenseFactory.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n\nimport \"./BasicLicense.sol\";\nimport \"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\";\nimport \"./PriceConverter.sol\";\nimport \"@openzeppelin/contracts/utils/Counters.sol\";\n\nerror FundMe__NotOwner();\n\ncontract LicenseFactory{\n    \n    using PriceConverter for uint256;\n    using Counters for Counters.Counter;\n    Counters.Counter private _licenseIds;\n\n    uint256 public constant MINIMUM_USD = 50 * 10**18;\n    address private immutable i_owner;\n    address[] private s_licenseOwners;\n    mapping(address => uint256) private s_addressToNumberOfLicense;\n    AggregatorV3Interface private s_priceFeed;\n    BasicLicense[] public s_basicLicenseArray;\n\n    modifier onlyOwner() {\n        if (msg.sender != i_owner) revert FundMe__NotOwner();\n        _;\n    }\n\n    constructor(address priceFeed) {\n        s_priceFeed = AggregatorV3Interface(priceFeed);\n        i_owner = msg.sender;\n    }\n\n    function buyLicense() public payable {\n        require(\n            msg.value.getConversionRate(s_priceFeed) >= MINIMUM_USD,\n            \"License price is Higher!\"\n        );\n        _licenseIds.increment();\n        uint256 newLicenseID = _licenseIds.current();\n        BasicLicense basicLicense = new BasicLicense(msg.sender, newLicenseID);\n        s_basicLicenseArray.push(basicLicense);\n        s_addressToNumberOfLicense[msg.sender] += 1;\n        s_licenseOwners.push(msg.sender);\n    }\n\n    function withdraw() public onlyOwner {\n        (bool success, ) = i_owner.call{value: address(this).balance}(\"\");\n        require(success);\n    }\n\n    function getAddressToNumberOfLicense(address licenseOwnerAddress)\n        public\n        view\n        returns (uint256)\n    {\n        return s_addressToNumberOfLicense[licenseOwnerAddress];\n    }\n\n    function getVersion() public view returns (uint256) {\n        return s_priceFeed.version();\n    }\n\n    function getLicense(uint256 index) public view returns (address) {\n        return s_basicLicenseArray[index].getOwner();\n    }\n    function getLicenseOwners(uint256 index) public view returns (address) {\n        return s_licenseOwners[index];\n    }\n    function getOwner() public view returns (address) {\n        return i_owner;\n    }\n\n    function getPriceFeed() public view returns (AggregatorV3Interface) {\n        return s_priceFeed;\n    }\n}\n"
+    },
+    "contracts/PriceConverter.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.17;\n\nimport \"@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol\";\n\nlibrary PriceConverter {\n  function getPrice(AggregatorV3Interface priceFeed)\n    internal\n    view\n    returns (uint256)\n  {\n    (, int256 answer, , , ) = priceFeed.latestRoundData();\n    // ETH/USD rate in 18 digit\n    return uint256(answer * 10000000000);\n  }\n\n  // 1000000000\n  // call it get fiatConversionRate, since it assumes something about decimals\n  // It wouldn't work for every aggregator\n  function getConversionRate(uint256 ethAmount, AggregatorV3Interface priceFeed)\n    internal\n    view\n    returns (uint256)\n  {\n    uint256 ethPrice = getPrice(priceFeed);\n    uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1000000000000000000;\n    // the actual ETH/USD conversation rate, after adjusting the extra 0s.\n    return ethAmountInUsd;\n  }\n}"
+    },
+    "@openzeppelin/contracts/utils/Counters.sol": {
+      "content": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts v4.4.1 (utils/Counters.sol)\n\npragma solidity ^0.8.0;\n\n/**\n * @title Counters\n * @author Matt Condon (@shrugs)\n * @dev Provides counters that can only be incremented, decremented or reset. This can be used e.g. to track the number\n * of elements in a mapping, issuing ERC721 ids, or counting request ids.\n *\n * Include with `using Counters for Counters.Counter;`\n */\nlibrary Counters {\n    struct Counter {\n        // This variable should never be directly accessed by users of the library: interactions must be restricted to\n        // the library's function. As of Solidity v0.5.2, this cannot be enforced, though there is a proposal to add\n        // this feature: see https://github.com/ethereum/solidity/issues/4637\n        uint256 _value; // default: 0\n    }\n\n    function current(Counter storage counter) internal view returns (uint256) {\n        return counter._value;\n    }\n\n    function increment(Counter storage counter) internal {\n        unchecked {\n            counter._value += 1;\n        }\n    }\n\n    function decrement(Counter storage counter) internal {\n        uint256 value = counter._value;\n        require(value > 0, \"Counter: decrement overflow\");\n        unchecked {\n            counter._value = value - 1;\n        }\n    }\n\n    function reset(Counter storage counter) internal {\n        counter._value = 0;\n    }\n}\n"
+    },
+    "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ninterface AggregatorV3Interface {\n  function decimals() external view returns (uint8);\n\n  function description() external view returns (string memory);\n\n  function version() external view returns (uint256);\n\n  function getRoundData(uint80 _roundId)\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n\n  function latestRoundData()\n    external\n    view\n    returns (\n      uint80 roundId,\n      int256 answer,\n      uint256 startedAt,\n      uint256 updatedAt,\n      uint80 answeredInRound\n    );\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}
