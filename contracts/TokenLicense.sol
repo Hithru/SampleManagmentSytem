@@ -53,7 +53,7 @@ contract TokenLicense is ERC721,Ownable{
         if (!_exists(tokenId)) {
             revert ERC721Metadata__URI_QueryFor_NonExistentToken();
         }
-        (, int256 price, , , ) = i_priceFeed.latestRoundData();
+        // (, int256 price, , , ) = i_priceFeed.latestRoundData();
         return
             string(
                 abi.encodePacked(
@@ -64,7 +64,7 @@ contract TokenLicense is ERC721,Ownable{
                                 '{"name":"',
                                 i_companyName, // You can add whatever name here
                                 '", "description":"An License for the software", ',
-                                '"attributes": [{"trait_type": "coolness", "value": 100}], "image":"',
+                                '"attributes": [{"license_type": "single_user", "value": "0.1eth"}], "image":"',
                                 'https://gateway.pinata.cloud/ipfs/QmSL812BUqiA1nuoA9JGUo9gg4t42tTxUe5sdZZQnA8VEC',
                                 '"}'
                             )

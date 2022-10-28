@@ -16,7 +16,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     } else {
         ethUsdPriceFeedAddress = networkConfig[chainId].ethUsdPriceFeed
     }
-    let licensePrice = 50
+    let licensePrice = "10000000000000000" //0.01 ETH
     let companyName = "Microsoft"
 
     log("----------------------------------------------------")
