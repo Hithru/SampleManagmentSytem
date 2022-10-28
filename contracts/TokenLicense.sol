@@ -8,12 +8,14 @@ import "base64-sol/base64.sol";
 import "hardhat/console.sol";
 
 error ERC721Metadata__URI_QueryFor_NonExistentToken();
+error TokenLicense__TransferFailed();
+error TokenLicense__NeedMoreETHSent();
 
 contract TokenLicense is ERC721,Ownable{
 
     uint256 private s_tokenCounter;
-    uint256 private s_licensePrice;
-    string private s_companyName;
+    uint256 private i_licensePrice;
+    string private i_companyName;
 
     AggregatorV3Interface internal immutable i_priceFeed;
 
@@ -26,20 +28,24 @@ contract TokenLicense is ERC721,Ownable{
     ) ERC721("Software License", "SHK") {
         s_tokenCounter = 0;
         i_priceFeed = AggregatorV3Interface(priceFeedAddress);
-        s_licensePrice = licensePrice;
-        s_companyName = companyName;
+        i_licensePrice = licensePrice;
+        i_companyName = companyName;
     }
 
 
-    function mintToken() public {
+    function mintToken() public payable  {
+        if (msg.value < i_licensePrice) {
+            revert TokenLicense__NeedMoreETHSent();
+        }
         _safeMint(msg.sender, s_tokenCounter);
         s_tokenCounter = s_tokenCounter + 1;
-        emit CreatedLicenseToken(s_tokenCounter, s_licensePrice);
+        emit CreatedLicenseToken(s_tokenCounter, i_licensePrice);
     }
 
 
 
     function _baseURI() internal pure override returns (string memory) {
+
         return "data:application/json;base64,";
     }
 
@@ -56,7 +62,7 @@ contract TokenLicense is ERC721,Ownable{
                         bytes(
                             abi.encodePacked(
                                 '{"name":"',
-                                s_companyName, // You can add whatever name here
+                                i_companyName, // You can add whatever name here
                                 '", "description":"An License for the software", ',
                                 '"attributes": [{"trait_type": "coolness", "value": 100}], "image":"',
                                 'https://gateway.pinata.cloud/ipfs/QmSL812BUqiA1nuoA9JGUo9gg4t42tTxUe5sdZZQnA8VEC',
@@ -76,5 +82,13 @@ contract TokenLicense is ERC721,Ownable{
 
     function getTokenCounter() public view returns (uint256) {
         return s_tokenCounter;
+    }
+
+    function withdraw() public onlyOwner {
+        uint256 amount = address(this).balance;
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) {
+            revert TokenLicense__TransferFailed();
+        }
     }
 }
