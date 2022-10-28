@@ -52,10 +52,6 @@ You'll want to set your `GOERLI_RPC_URL` and `PRIVATE_KEY` as environment variab
 Head over to [faucets.chain.link](https://faucets.chain.link/) and get some tesnet ETH. You should see the ETH show up in your metamask.
 
 
-2. Get testnet ETH
-
-Head over to [faucets.chain.link](https://faucets.chain.link/) and get some tesnet ETH. You should see the ETH show up in your metamask.
-
 3. Deploy
 
 ```
